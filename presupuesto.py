@@ -74,9 +74,9 @@ class funcPresupuesto:
 
         for p in datos:
             eliminar_btn = ft.IconButton(icon=ft.Icons.DELETE, tooltip="Eliminar",
-                                         on_click=lambda e, p=p: self.eliminar_presupuesto(p))
+                                        on_click=lambda e, p=p: self.eliminar_presupuesto(p))
             modificar_btn = ft.IconButton(icon=ft.Icons.EDIT, tooltip="Modificar",
-                                          on_click=lambda e, p=p: self.formulario_modificar(p))
+                                        on_click=lambda e, p=p: self.formulario_modificar(p))
             self.data_table.rows.append(
                 ft.DataRow(
                     cells=[
@@ -146,7 +146,7 @@ class funcPresupuesto:
                 self.cursor.execute(
                     "UPDATE presupuesto SET cod_cliente=%s, descripcion=%s, total_presupuesto=%s, total_gastado=%s WHERE nro_presupuesto=%s",
                     (cod_cliente.value, descripcion.value, float(total_presupuesto.value or 0),
-                     float(total_gastado.value or 0), nro_presupuesto.value)
+                    float(total_gastado.value or 0), nro_presupuesto.value)
                 )
                 self.connection.commit()
                 self.page.snack_bar = ft.SnackBar(ft.Text("Presupuesto actualizado correctamente"))

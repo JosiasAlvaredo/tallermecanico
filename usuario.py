@@ -15,7 +15,7 @@ class funcUsuario:
         btn_login = ft.ElevatedButton(
             text="Acceder",
             icon=ft.Icons.LOGIN,
-            on_click=lambda e: self.volver_menu(self.page)  # Lleva al menú
+            on_click=lambda e: self.volver_menu(self.page)  
         )
         btn_volver = ft.ElevatedButton(
             text="<-- Volver",

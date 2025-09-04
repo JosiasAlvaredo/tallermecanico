@@ -12,9 +12,11 @@ def connect_to_db():
             ssl_disabled=True,
         )
         if connection.is_connected():
+            print('Conexión exitosa')
             return connection
     except Exception as ex:
-        print("Error de conexión:", ex)
+        print('Conexión errónea')
+        print(ex)
         return None
 
 class funcEmpleado:
