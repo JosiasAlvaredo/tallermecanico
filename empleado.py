@@ -1,30 +1,57 @@
 import flet as ft
 import mysql.connector
 
-def connect_to_db():
-    try:
-        connection = mysql.connector.connect(
-            host="localhost",
-            port=3306,
-            user="root",
-            password="root",
-            database="taller_mecanico",
-            ssl_disabled=True,
-        )
-        if connection.is_connected():
-            print('Conexión exitosa')
-            return connection
-    except Exception as ex:
-        print('Conexión errónea')
-        print(ex)
-        return None
+#Conexion DB y CRUD
+class EmpleadoDB:
+    def __init__(self):
+        try:
+            self.connection = mysql.connector.connect(
+                host="localhost",
+                port=3306,
+                user="root",
+                password="root",
+                database="taller_mecanico",
+                ssl_disabled=True
+            )
+            self.cursor = self.connection.cursor(buffered=True)
+        except mysql.connector.Error as err:
+            print(f"Error al conectar DB: {err}")
+            self.connection = None
+            self.cursor = None
 
-class funcEmpleado:
+    def obtener_todos(self):
+        self.cursor.execute("""
+            SELECT p.apellido, p.nombre, p.dni, e.legajo
+            FROM empleado e
+            INNER JOIN persona p ON e.dni = p.dni
+            ORDER BY p.apellido
+        """)
+        return self.cursor.fetchall()
+
+    def insertar(self, legajo, dni):
+        self.cursor.execute("INSERT INTO empleado (legajo, dni) VALUES (%s, %s)", (legajo, dni))
+        self.connection.commit()
+
+    def actualizar(self, legajo, dni):
+        self.cursor.execute("UPDATE empleado SET legajo=%s WHERE dni=%s", (legajo, dni))
+        self.connection.commit()
+
+    def eliminar(self, legajo):
+        self.cursor.execute("DELETE FROM empleado WHERE legajo=%s", (legajo,))
+        self.connection.commit()
+
+    def cerrar(self):
+        if self.cursor:
+            self.cursor.close()
+        if self.connection and self.connection.is_connected():
+            self.connection.close()
+
+#UI
+class FuncEmpleado(EmpleadoDB):
     def __init__(self, page: ft.Page, main_menu_callback):
+        super().__init__()  
         self.page = page
         self.main_menu_callback = main_menu_callback
-        self.connection = connect_to_db()
-        self.cursor = self.connection.cursor() if self.connection else None
         self.mostrar_empleados()
 
     def mostrar_empleados(self):
@@ -54,25 +81,26 @@ class funcEmpleado:
         if not self.cursor:
             self.page.add(ft.Text("No hay conexión a la base de datos"))
             return
+
         try:
-            self.cursor.execute("""
-                SELECT p.apellido, p.nombre, p.dni, e.legajo
-                FROM empleado e
-                INNER JOIN persona p ON e.dni = p.dni
-                ORDER BY p.apellido
-            """)
-            datos = self.cursor.fetchall()
+            datos = self.obtener_todos()
         except Exception as ex:
             self.page.add(ft.Text(f"Error al cargar empleados: {ex}"))
             return
 
         self.data_table.rows.clear()
 
+        def crear_eliminar(fila):
+            return lambda e: self.eliminar_empleado(fila[3])
+
+        def crear_modificar(fila):
+            return lambda e: self.formulario_modificar(fila)
+
         for fila in datos:
             eliminar_btn = ft.IconButton(icon=ft.Icons.DELETE, tooltip="Eliminar",
-                                        on_click=lambda e, l=fila[3]: self.eliminar_empleado(l))
+                                        on_click=crear_eliminar(fila))
             modificar_btn = ft.IconButton(icon=ft.Icons.EDIT, tooltip="Modificar",
-                                        on_click=lambda e, f=fila: self.formulario_modificar(f))
+                                        on_click=crear_modificar(fila))
             self.data_table.rows.append(
                 ft.DataRow(
                     cells=[
@@ -90,7 +118,6 @@ class funcEmpleado:
         self.page.clean()
         legajo = ft.TextField(label="Legajo")
         dni = ft.TextField(label="DNI (Debe existir en Personas)")
-
         mensaje = ft.Column([])
 
         def guardar(ev):
@@ -105,19 +132,16 @@ class funcEmpleado:
                     mensaje.controls.append(ft.Text("Error: DNI no existe en Personas. Cree la persona primero."))
                     self.page.update()
                     return
-                self.cursor.execute("INSERT INTO empleado (legajo, dni) VALUES (%s, %s)", (legajo.value, dni.value))
-                self.connection.commit()
+                self.insertar(legajo.value, dni.value)
                 self.mostrar_empleados()
             except Exception as ex:
                 mensaje.controls.append(ft.Text(f"Error al guardar empleado: {ex}"))
-                self.connection.rollback()
                 self.page.update()
 
         self.page.add(
             ft.Column([
                 ft.Text("Alta Empleado", size=20, weight="bold"),
-                legajo, dni,
-                mensaje,
+                legajo, dni, mensaje,
                 ft.Row([
                     ft.ElevatedButton(text="Guardar", on_click=guardar),
                     ft.ElevatedButton(text="Cancelar", on_click=lambda e: self.mostrar_empleados())
@@ -134,12 +158,10 @@ class funcEmpleado:
 
         def actualizar(ev):
             try:
-                self.cursor.execute("UPDATE empleado SET legajo=%s WHERE dni=%s", (legajo.value, dni.value))
-                self.connection.commit()
+                self.actualizar(legajo.value, dni.value)
                 self.cargar_tabla(None)
             except Exception as ex:
                 self.page.add(ft.Text(f"Error al actualizar empleado: {ex}"))
-                self.connection.rollback()
 
         self.page.add(
             ft.Column([
@@ -154,13 +176,11 @@ class funcEmpleado:
 
     def eliminar_empleado(self, legajo):
         try:
-            self.cursor.execute("DELETE FROM empleado WHERE legajo=%s", (legajo,))
-            self.connection.commit()
+            self.eliminar(legajo)
             self.cargar_tabla(None)
         except Exception as ex:
             self.page.add(ft.Text(f"Error al eliminar empleado: {ex}"))
-            self.connection.rollback()
 
     def volver_al_menu(self, e):
         self.page.clean()
-        self.main_menu_callback(self.page)
+        self.main_menu_callback()

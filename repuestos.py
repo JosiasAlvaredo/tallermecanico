@@ -1,30 +1,59 @@
 import flet as ft
 import mysql.connector
 
-def connect_to_db():
-    try:
-        connection = mysql.connector.connect(
-            host='localhost',
-            port=3306,
-            user='root',
-            password='root',
-            database='taller_mecanico',
-            ssl_disabled=True
-        )
-        if connection.is_connected():
-            print('Conexión exitosa')
-            return connection
-    except Exception as ex:
-        print('Conexión errónea')
-        print(ex)
-        return None
+#Conexion DB y CRUD
+class RepuestoDB:
+    def __init__(self):
+        try:
+            self.connection = mysql.connector.connect(
+                host="localhost",
+                port=3306,
+                user="root",
+                password="root",
+                database="taller_mecanico",
+                ssl_disabled=True
+            )
+            self.cursor = self.connection.cursor(buffered=True)
+        except mysql.connector.Error as err:
+            print(f"Error al conectar DB: {err}")
+            self.connection = None
+            self.cursor = None
 
-class funcRepuesto:
+    def obtener_todos(self):
+        self.cursor.execute("SELECT cod_repuesto, descripcion, pcio_unit FROM repuestos ORDER BY cod_repuesto")
+        return self.cursor.fetchall()
+
+    def insertar(self, cod, desc, precio):
+        self.cursor.execute(
+            "INSERT INTO repuestos (cod_repuesto, descripcion, pcio_unit) VALUES (%s,%s,%s)",
+            (cod, desc, precio)
+        )
+        self.connection.commit()
+
+    def actualizar(self, cod, desc, precio):
+        self.cursor.execute(
+            "UPDATE repuestos SET descripcion=%s, pcio_unit=%s WHERE cod_repuesto=%s",
+            (desc, precio, cod)
+        )
+        self.connection.commit()
+
+    def eliminar(self, cod):
+        self.cursor.execute("DELETE FROM repuestos WHERE cod_repuesto=%s", (cod,))
+        self.connection.commit()
+
+    def cerrar(self):
+        if self.cursor:
+            self.cursor.close()
+        if self.connection and self.connection.is_connected():
+            self.connection.close()
+
+
+# ---------------------- Interfaz Flet ----------------------
+class FuncRepuesto(RepuestoDB):
     def __init__(self, page: ft.Page, main_menu_callback):
+        super().__init__()  # Uso de POO
         self.page = page
         self.main_menu_callback = main_menu_callback
-        self.connection = connect_to_db()
-        self.cursor = self.connection.cursor(buffered=True) if self.connection else None
         self.mostrar_repuestos()
 
     def mostrar_repuestos(self):
@@ -59,12 +88,7 @@ class funcRepuesto:
             return
 
         try:
-            self.cursor.execute("""
-                SELECT cod_repuesto, descripcion, pcio_unit
-                FROM repuestos
-                ORDER BY cod_repuesto
-            """)
-            datos = self.cursor.fetchall()
+            datos = self.obtener_todos()
         except Exception as ex:
             self.page.add(ft.Text(f"Error al cargar datos: {ex}"))
             return
@@ -103,15 +127,10 @@ class funcRepuesto:
 
         def guardar_datos(ev):
             try:
-                self.cursor.execute(
-                    "INSERT INTO repuestos (cod_repuesto, descripcion, pcio_unit) VALUES (%s,%s,%s)",
-                    (cod_repuesto.value, descripcion.value, precio.value)
-                )
-                self.connection.commit()
+                self.insertar(cod_repuesto.value, descripcion.value, precio.value)
                 self.mostrar_repuestos()
             except Exception as ex:
                 self.page.add(ft.Text(f"Error al guardar: {ex}"))
-                self.connection.rollback()
 
         self.page.add(
             ft.Column([
@@ -132,15 +151,10 @@ class funcRepuesto:
 
         def actualizar_datos(ev):
             try:
-                self.cursor.execute(
-                    "UPDATE repuestos SET descripcion=%s, pcio_unit=%s WHERE cod_repuesto=%s",
-                    (descripcion.value, precio.value, cod_repuesto.value)
-                )
-                self.connection.commit()
+                self.actualizar(cod_repuesto.value, descripcion.value, precio.value)
                 self.mostrar_repuestos()
             except Exception as ex:
                 self.page.add(ft.Text(f"Error al actualizar: {ex}"))
-                self.connection.rollback()
 
         self.page.add(
             ft.Column([
@@ -156,13 +170,11 @@ class funcRepuesto:
     def eliminar_repuesto(self, repuesto):
         cod_repuesto = repuesto[0]
         try:
-            self.cursor.execute("DELETE FROM repuestos WHERE cod_repuesto=%s", (cod_repuesto,))
-            self.connection.commit()
+            self.eliminar(cod_repuesto)
             self.cargar_tabla(None)
         except Exception as ex:
             self.page.add(ft.Text(f"Error al eliminar: {ex}"))
-            self.connection.rollback()
 
     def volver_al_menu(self, e):
         self.page.clean()
-        self.main_menu_callback(self.page)
+        self.main_menu_callback()

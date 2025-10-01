@@ -1,45 +1,65 @@
 import flet as ft
 import mysql.connector
 
-def connect_to_db():
-    try:
-        connection = mysql.connector.connect(
-            host="localhost",
-            port=3306,
-            user="root",
-            password="root",
-            database="taller_mecanico",
-            ssl_disabled=True,
+#Conexion DB y CRUD
+class FichaTecnicaDB:
+    def __init__(self):
+        try:
+            self.connection = mysql.connector.connect(
+                host="localhost",
+                port=3306,
+                user="root",
+                password="root",
+                database="taller_mecanico",
+                ssl_disabled=True
+            )
+            self.cursor = self.connection.cursor(buffered=True)
+        except Exception as ex:
+            print("Error de conexión:", ex)
+            self.connection = None
+            self.cursor = None
+
+    def obtener_todas(self):
+        self.cursor.execute("""
+            SELECT nro_ficha, cod_cliente, vehiculo, subtotal, mano_obra, total_general
+            FROM ficha_tecnica ORDER BY nro_ficha
+        """)
+        return self.cursor.fetchall()
+
+    def insertar(self, nro, cliente, vehiculo, subtotal, mano_obra, total):
+        self.cursor.execute(
+            "INSERT INTO ficha_tecnica (nro_ficha, cod_cliente, vehiculo, subtotal, mano_obra, total_general) VALUES (%s,%s,%s,%s,%s,%s)",
+            (nro, cliente, vehiculo, subtotal, mano_obra, total)
         )
-        if connection.is_connected():
-            print("Conexión exitosa")
-            return connection
-    except Exception as ex:
-        print("Conexión errónea:", ex)
-        return None
+        self.connection.commit()
 
+    def actualizar(self, nro, cliente, vehiculo, subtotal, mano_obra, total):
+        self.cursor.execute(
+            "UPDATE ficha_tecnica SET cod_cliente=%s, vehiculo=%s, subtotal=%s, mano_obra=%s, total_general=%s WHERE nro_ficha=%s",
+            (cliente, vehiculo, subtotal, mano_obra, total, nro)
+        )
+        self.connection.commit()
 
-class funcFichaTecnica:
+    def eliminar(self, nro):
+        self.cursor.execute("DELETE FROM ficha_tecnica WHERE nro_ficha=%s", (nro,))
+        self.connection.commit()
+
+#UI
+class FuncFichaTecnica(FichaTecnicaDB):
     def __init__(self, page: ft.Page, main_menu_callback):
+        super().__init__()
         self.page = page
         self.main_menu_callback = main_menu_callback
-        self.connection = connect_to_db()
-        self.cursor = self.connection.cursor(buffered=True) if self.connection else None
         self.mostrar_fichas()
 
     def mostrar_fichas(self):
         self.page.clean()
-
-        header = ft.Row(
-            controls=[
-                ft.Text("Gestión de Fichas Técnicas", size=20, weight="bold"),
-                ft.ElevatedButton(text="Alta", on_click=self.formulario_alta),
-                ft.ElevatedButton(text="Consulta", on_click=self.cargar_tabla),
-                ft.ElevatedButton(text="<-- Volver", on_click=self.volver_al_menu),
-            ],
-            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-            vertical_alignment=ft.CrossAxisAlignment.CENTER,
-        )
+        header = ft.Row([
+            ft.Text("Gestión de Fichas Técnicas", size=20, weight="bold"),
+            ft.ElevatedButton("Alta", on_click=self.alta_ficha),
+            ft.ElevatedButton("Consulta", on_click=self.cargar_tabla),
+            ft.ElevatedButton("<-- Volver", on_click=self.volver_al_menu)
+        ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN)
 
         self.data_table = ft.DataTable(
             columns=[
@@ -54,7 +74,7 @@ class funcFichaTecnica:
             rows=[]
         )
 
-        self.page.add(header, self.data_table)
+        self.page.add(ft.Column([header, self.data_table]))
         self.cargar_tabla(None)
 
     def cargar_tabla(self, e):
@@ -62,120 +82,77 @@ class funcFichaTecnica:
             self.page.add(ft.Text("No hay conexión a la base de datos"))
             return
 
-        try:
-            self.cursor.execute("""
-                SELECT nro_ficha, cod_cliente, vehiculo, subtotal, mano_obra, total_general
-                FROM ficha_tecnica
-                ORDER BY nro_ficha
-            """)
-            datos = self.cursor.fetchall()
-        except Exception as ex:
-            self.page.add(ft.Text(f"Error al cargar datos: {ex}"))
-            return
-
+        fichas = self.obtener_todas()
         self.data_table.rows.clear()
 
-        def crear_eliminar(ficha):
-            return lambda e: self.eliminar_ficha(ficha)
+        def crear_eliminar(f):
+            return lambda e: self.eliminar_ficha(f[0])
 
-        def crear_modificar(ficha):
-            return lambda e: self.formulario_modificar(ficha)
+        def crear_modificar(f):
+            return lambda e: self.formulario_modificar(f)
 
-        for ficha in datos:
-            eliminar_btn = ft.IconButton(icon=ft.Icons.DELETE, tooltip="Eliminar",
-                                         on_click=crear_eliminar(ficha))
-            actualizar_btn = ft.IconButton(icon=ft.Icons.EDIT, tooltip="Modificar",
-                                           on_click=crear_modificar(ficha))
-
+        for f in fichas:
+            eliminar_btn = ft.IconButton(icon=ft.Icons.DELETE, tooltip="Eliminar", on_click=crear_eliminar(f))
+            modificar_btn = ft.IconButton(icon=ft.Icons.EDIT, tooltip="Modificar", on_click=crear_modificar(f))
             self.data_table.rows.append(
-                ft.DataRow(
-                    cells=[
-                        ft.DataCell(ft.Text(str(ficha[0]))),
-                        ft.DataCell(ft.Text(str(ficha[1]))),
-                        ft.DataCell(ft.Text(ficha[2])),
-                        ft.DataCell(ft.Text(str(ficha[3]))),
-                        ft.DataCell(ft.Text(str(ficha[4]))),
-                        ft.DataCell(ft.Text(str(ficha[5]))),
-                        ft.DataCell(ft.Row([eliminar_btn, actualizar_btn]))
-                    ]
-                )
+                ft.DataRow(cells=[
+                    ft.DataCell(ft.Text(str(f[0]))),
+                    ft.DataCell(ft.Text(str(f[1]))),
+                    ft.DataCell(ft.Text(f[2])),
+                    ft.DataCell(ft.Text(str(f[3]))),
+                    ft.DataCell(ft.Text(str(f[4]))),
+                    ft.DataCell(ft.Text(str(f[5]))),
+                    ft.DataCell(ft.Row([eliminar_btn, modificar_btn]))
+                ])
             )
         self.page.update()
 
-    def formulario_alta(self, e):
+    def alta_ficha(self, e):
         self.page.clean()
-        nro_ficha = ft.TextField(label="Nro Ficha")
-        cod_cliente = ft.TextField(label="Código Cliente")
+        nro = ft.TextField(label="Nro Ficha")
+        cliente = ft.TextField(label="Código Cliente")
         vehiculo = ft.TextField(label="Vehículo")
         subtotal = ft.TextField(label="Subtotal")
         mano_obra = ft.TextField(label="Mano de Obra")
-        total_general = ft.TextField(label="Total General")
+        total = ft.TextField(label="Total General")
 
-        def guardar_datos(ev):
-            try:
-                self.cursor.execute(
-                    "INSERT INTO ficha_tecnica (nro_ficha, cod_cliente, vehiculo, subtotal, mano_obra, total_general) VALUES (%s,%s,%s,%s,%s,%s)",
-                    (nro_ficha.value, cod_cliente.value, vehiculo.value, subtotal.value, mano_obra.value, total_general.value)
-                )
-                self.connection.commit()
-                self.mostrar_fichas()
-            except Exception as ex:
-                self.page.add(ft.Text(f"Error al guardar: {ex}"))
-                self.connection.rollback()
+        def guardar(ev):
+            self.insertar(nro.value, cliente.value, vehiculo.value, subtotal.value, mano_obra.value, total.value)
+            self.mostrar_fichas()
 
-        self.page.add(
-            ft.Column([
-                ft.Text("Alta de Ficha Técnica", size=20, weight="bold"),
-                nro_ficha, cod_cliente, vehiculo, subtotal, mano_obra, total_general,
-                ft.Row([
-                    ft.ElevatedButton(text="Guardar", on_click=guardar_datos),
-                    ft.ElevatedButton(text="Cancelar", on_click=lambda e: self.mostrar_fichas())
-                ])
-            ])
-        )
+        btns = ft.Row([
+            ft.ElevatedButton("Guardar", on_click=guardar),
+            ft.ElevatedButton("Cancelar", on_click=lambda e: self.mostrar_fichas())
+        ], spacing=10)
 
-    def formulario_modificar(self, ficha):
+        self.page.add(ft.Column([ft.Text("Alta de Ficha Técnica", size=20, weight="bold"), nro, cliente, vehiculo, subtotal, mano_obra, total, btns]))
+        self.page.update()
+
+    def formulario_modificar(self, f):
         self.page.clean()
-        nro_ficha = ft.TextField(label="Nro Ficha", value=str(ficha[0]), disabled=True)
-        cod_cliente = ft.TextField(label="Código Cliente", value=str(ficha[1]))
-        vehiculo = ft.TextField(label="Vehículo", value=ficha[2])
-        subtotal = ft.TextField(label="Subtotal", value=str(ficha[3]))
-        mano_obra = ft.TextField(label="Mano de Obra", value=str(ficha[4]))
-        total_general = ft.TextField(label="Total General", value=str(ficha[5]))
+        nro = ft.TextField(label="Nro Ficha", value=str(f[0]), disabled=True)
+        cliente = ft.TextField(label="Código Cliente", value=str(f[1]))
+        vehiculo = ft.TextField(label="Vehículo", value=f[2])
+        subtotal = ft.TextField(label="Subtotal", value=str(f[3]))
+        mano_obra = ft.TextField(label="Mano de Obra", value=str(f[4]))
+        total = ft.TextField(label="Total General", value=str(f[5]))
 
-        def actualizar_datos(ev):
-            try:
-                self.cursor.execute(
-                    "UPDATE ficha_tecnica SET cod_cliente=%s, vehiculo=%s, subtotal=%s, mano_obra=%s, total_general=%s WHERE nro_ficha=%s",
-                    (cod_cliente.value, vehiculo.value, subtotal.value, mano_obra.value, total_general.value, nro_ficha.value)
-                )
-                self.connection.commit()
-                self.mostrar_fichas()
-            except Exception as ex:
-                self.page.add(ft.Text(f"Error al actualizar: {ex}"))
-                self.connection.rollback()
+        def guardar(ev):
+            self.actualizar(nro.value, cliente.value, vehiculo.value, subtotal.value, mano_obra.value, total.value)
+            self.mostrar_fichas()
 
-        self.page.add(
-            ft.Column([
-                ft.Text("Modificar Ficha Técnica", size=20, weight="bold"),
-                nro_ficha, cod_cliente, vehiculo, subtotal, mano_obra, total_general,
-                ft.Row([
-                    ft.ElevatedButton(text="Actualizar", on_click=actualizar_datos),
-                    ft.ElevatedButton(text="Cancelar", on_click=lambda e: self.mostrar_fichas())
-                ])
-            ])
-        )
+        btns = ft.Row([
+            ft.ElevatedButton("Guardar Cambios", on_click=guardar),
+            ft.ElevatedButton("Cancelar", on_click=lambda e: self.mostrar_fichas())
+        ], spacing=10)
 
-    def eliminar_ficha(self, ficha):
-        nro_ficha = ficha[0]
-        try:
-            self.cursor.execute("DELETE FROM ficha_tecnica WHERE nro_ficha=%s", (nro_ficha,))
-            self.connection.commit()
-            self.cargar_tabla(None)
-        except Exception as ex:
-            self.page.add(ft.Text(f"Error al eliminar: {ex}"))
-            self.connection.rollback()
+        self.page.add(ft.Column([ft.Text("Editar Ficha Técnica", size=20, weight="bold"), nro, cliente, vehiculo, subtotal, mano_obra, total, btns]))
+        self.page.update()
+
+    def eliminar_ficha(self, nro):
+        self.eliminar(nro)
+        self.cargar_tabla(None)
 
     def volver_al_menu(self, e):
         self.page.clean()
-        self.main_menu_callback(self.page)
+        self.main_menu_callback()

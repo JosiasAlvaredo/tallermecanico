@@ -1,156 +1,105 @@
 import flet as ft
-import mysql.connector
-from usuario import funcUsuario
-from cliente import funcCliente
-from repuestos import funcRepuesto
-from empleado import funcEmpleado
-from proveedor import funcProveedor
-from ficha_tecnica import funcFichaTecnica
-from presupuesto import funcPresupuesto
+from cliente import FuncCliente, ClienteDB
+from repuestos import FuncRepuesto, RepuestoDB
+from empleado import FuncEmpleado, EmpleadoDB
+from proveedor import FuncProveedor, ProveedorDB
+from ficha_tecnica import FuncFichaTecnica, FichaTecnicaDB
+from presupuesto import FuncPresupuesto, PresupuestoDB
+from usuario import FuncUsuario, UsuarioDB
 
+class TallerMecanicoApp:
+    def __init__(self, page: ft.Page, estado_usuario):
+        self.page = page
+        self.estado_usuario = estado_usuario
+        self.modulos = {
+            "Cliente": lambda: FuncCliente(self.page, ClienteDB(), volver_callback=self.menu_principal).mostrar_clientes(),
+            "Proveedor": lambda: FuncProveedor(self.page, self.menu_principal),
+            "Repuesto": lambda: FuncRepuesto(self.page, self.menu_principal),
+            "Empleado": lambda: FuncEmpleado(self.page, self.menu_principal),
+            "Ficha Técnica": lambda: FuncFichaTecnica(self.page, self.menu_principal),
+            "Presupuesto": lambda: FuncPresupuesto(self.page, self.menu_principal),
+            "Usuario": lambda: FuncUsuario(self.page, self.menu_principal, self.estado_usuario),  # ✅ agregado
+        }
 
-def connect_to_db():
-    try:
-        connection = mysql.connector.connect(
-            host="localhost",
-            port="3306",
-            user="root",
-            password="root",
-            database="taller_mecanico",
-            ssl_disabled=True,
-        )
-        if connection.is_connected():
-            print("Conexión exitosa")
-            return connection
-    except Exception as ex:
-        print("Conexión errónea")
-        print(ex)
-        return None
+        self.menu_principal()
 
+    def seleccionar_modulo(self, e):
+        modulo = e.control.value
+        if modulo in self.modulos:
+            self.modulos[modulo]()
 
-connection = connect_to_db()
+    def crear_boton(self, icono_path, tooltip, callback):
+        icono = ft.Image(src=icono_path, width=28, height=28)
+        return ft.IconButton(content=icono, tooltip=tooltip, on_click=callback)
 
+    def menu_principal(self, e=None):
+        self.page.clean()
+        self.page.bgcolor = ft.Colors.BLUE_50
+        self.page.title = "Administración de Taller Mecánico"
 
-def cliente(e, page: ft.Page):
-    funcCliente(page, menu_principal)
-
-
-def usuario(e, page: ft.Page):
-    funcUsuario(page, menu_principal)
-
-
-def repuesto(e, page: ft.Page):
-    funcRepuesto(page, menu_principal)
-
-
-def proveedor(e, page: ft.Page):
-    funcProveedor(page, menu_principal)
-
-
-def empleado(e, page: ft.Page):
-    funcEmpleado(page, menu_principal)
-
-
-def ficha_tecnica(e, page: ft.Page):
-    funcFichaTecnica(page, menu_principal)
-
-def presupuesto(e, page: ft.Page):
-    funcPresupuesto(page, menu_principal)
-
-
-
-
-
-def seleccionar_modulo(e, page):
-    if e.control.value == "Cliente":
-        cliente(e, page)
-    elif e.control.value == "Proveedor":
-        proveedor(e, page)
-    elif e.control.value == "Repuesto":
-        repuesto(e, page)
-    elif e.control.value == "Empleado":
-        empleado(e, page)
-    elif e.control.value == "Usuario":
-        usuario(e, page)
-    elif e.control.value == "Ficha Técnica":
-        ficha_tecnica(e, page)
-    elif e.control.value == "Presupuesto":
-        presupuesto(e, page)
-
-
-
-def menu_principal(page: ft.Page):
-    page.clean()
-    page.bgcolor = ft.Colors.BLUE_50
-    page.title = "Administración de Taller Mecánico"
-
-    cliente_icono = ft.Image(src="Cliente.png", width=28, height=28)
-    proveedor_icono = ft.Image(src="proveedor.png", width=28, height=28)
-    repuesto_icono = ft.Image(src="alineacion-de-ruedas.png", width=28, height=28)
-    empleado_icono = ft.Image(src="recursos-humanos.png", width=28, height=28)
-    usuario_icono = ft.Image(src="usuario.png", width=28, height=28)
-    ficha_tecnica_icono = ft.Image(src="auto.png", width=28, height=28)
-    presupuesto_icono = ft.Image(src="Presupuesto.png", width=28, height=28)
-
-    menu_herramientas = ft.Dropdown(
-        label="Módulos",
-        options=[
-            ft.dropdown.Option("Cliente"),
-            ft.dropdown.Option("Proveedor"),
-            ft.dropdown.Option("Repuesto"),
-            ft.dropdown.Option("Empleado"),
-            ft.dropdown.Option("Usuario"),
-            ft.dropdown.Option("Ficha Técnica"),
-            ft.dropdown.Option("Presupuesto")
-        ],
-        on_change=lambda e: seleccionar_modulo(e, page),
-    )
-
-    boton_cliente = ft.IconButton(
-        content=cliente_icono, tooltip="Clientes", on_click=lambda e: cliente(e, page)
-    )
-    boton_proveedor = ft.IconButton(
-        content=proveedor_icono, tooltip="Proveedores", on_click=lambda e: proveedor(e, page)
-    )
-    boton_repuesto = ft.IconButton(
-        content=repuesto_icono, tooltip="Repuestos", on_click=lambda e: repuesto(e, page)
-    )
-    boton_empleado = ft.IconButton(
-        content=empleado_icono, tooltip="Empleados", on_click=lambda e: empleado(e, page)
-    )
-    boton_ficha_tecnica = ft.IconButton(
-        content=ficha_tecnica_icono, tooltip="Ficha Técnica", on_click=lambda e: ficha_tecnica(e, page)
-    )
-    boton_usuario = ft.IconButton(
-        content=usuario_icono, tooltip="Usuarios", on_click=lambda e: usuario(e, page)
-    )
-    boton_presupuesto = ft.IconButton(
-        content=presupuesto_icono, tooltip="Presupuesto", on_click=lambda e: presupuesto(e, page)
-    )
-
-    page.add(
-        ft.Row(
-            controls=[menu_herramientas],
-            spacing=10,
-        ),
-        ft.Row(
-            controls=[
-                boton_cliente,
-                boton_proveedor,
-                boton_repuesto,
-                boton_empleado,
-                boton_ficha_tecnica,
-                boton_usuario,
-                boton_presupuesto
+        menu_administracion = ft.Dropdown(
+            label="Administración",
+            width=220,
+            options=[
+                ft.dropdown.Option("Ficha Técnica"),
+                ft.dropdown.Option("Presupuesto"),
+                ft.dropdown.Option("Usuario"), 
             ],
-            spacing=10,
-        ),
-    )
+            on_change=self.seleccionar_modulo,
+        )
 
+        menu_herramientas = ft.Dropdown(
+            label="Herramientas",
+            width=200,
+            options=[
+                ft.dropdown.Option("Cliente"),
+                ft.dropdown.Option("Proveedor"),
+                ft.dropdown.Option("Repuesto"),
+                ft.dropdown.Option("Empleado"),
+            ],
+            on_change=self.seleccionar_modulo,
+        )
+
+        boton_cliente = self.crear_boton("Cliente.png", "Clientes", lambda e: self.modulos["Cliente"]())
+        boton_proveedor = self.crear_boton("proveedor.png", "Proveedores", lambda e: self.modulos["Proveedor"]())
+        boton_repuesto = self.crear_boton("alineacion-de-ruedas.png", "Repuestos", lambda e: self.modulos["Repuesto"]())
+        boton_empleado = self.crear_boton("recursos-humanos.png", "Empleados", lambda e: self.modulos["Empleado"]())
+        boton_ficha_tecnica = self.crear_boton("auto.png", "Ficha Técnica", lambda e: self.modulos["Ficha Técnica"]())
+        boton_presupuesto = self.crear_boton("Presupuesto.png", "Presupuesto", lambda e: self.modulos["Presupuesto"]())
+        boton_usuario = self.crear_boton("usuarios.png", "Usuario", lambda e: self.modulos["Usuario"]())
+
+        sesion_texto = (
+            ft.Text(f"Sesión iniciada: {self.estado_usuario['nombre']}", size=14, weight="bold")
+            if self.estado_usuario["nombre"]
+            else ft.Text("No hay sesión iniciada", size=14, italic=True)
+        )
+
+        self.page.add(
+            ft.Column(
+                controls=[
+                    ft.Row(
+                        controls=[menu_herramientas, menu_administracion, ft.Container(expand=True), sesion_texto],
+                        alignment="spaceBetween",
+                    ),
+                    ft.Row(
+                        controls=[
+                            boton_cliente,
+                            boton_proveedor,
+                            boton_repuesto,
+                            boton_empleado,
+                            boton_presupuesto,
+                            boton_ficha_tecnica,
+                            boton_usuario,  
+                        ],
+                        spacing=10,
+                    ),
+                ],
+                spacing=20,
+            )
+        )
 
 def main(page: ft.Page):
     page.window.maximized = True
-
     page.theme = ft.Theme(
         text_theme=ft.TextTheme(
             body_small=ft.TextStyle(color=ft.Colors.BLACK),
@@ -162,7 +111,7 @@ def main(page: ft.Page):
         )
     )
 
-    menu_principal(page)
-
+    estado_usuario = {"nombre": None}
+    TallerMecanicoApp(page, estado_usuario)
 
 ft.app(target=main, assets_dir="iconos")
