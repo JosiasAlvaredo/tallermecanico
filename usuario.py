@@ -1,21 +1,13 @@
+#Iniciar app inicia sesion
+
 import flet as ft
 import mysql.connector
+from conexion import ConexionGlobal
 
 #Conexion DB
-class UsuarioDB:
+class UsuarioDB(ConexionGlobal):
     def __init__(self):
-        try:
-            self.connection = mysql.connector.connect(
-                host="localhost",
-                user="root",
-                password="root",
-                database="taller_mecanico"
-            )
-            self.cursor = self.connection.cursor(buffered=True)
-        except mysql.connector.Error as err:
-            print(f"Error al conectar a la DB: {err}")
-            self.connection = None
-            self.cursor = None
+        super().__init__()
 
     def verificar_usuario(self, usuario, contrasena):
         self.cursor.execute(

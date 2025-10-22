@@ -1,28 +1,12 @@
 import flet as ft
 import mysql.connector
+from conexion import ConexionGlobal
+
 
 #Conexion DB y CRUD
-class ClienteDB:
+class ClienteDB(ConexionGlobal):
     def __init__(self):
-        self.connection = self.conectar()
-        self.cursor = self.connection.cursor(buffered=True) if self.connection else None
-
-    def conectar(self):
-        try:
-            conn = mysql.connector.connect(
-                host='localhost',
-                port=3306,
-                user='root',
-                password='root',
-                database='taller_mecanico',
-                ssl_disabled=True
-            )
-            if conn.is_connected():
-                print("Conexión exitosa a la DB")
-                return conn
-        except Exception as e:
-            print("Error al conectar DB:", e)
-            return None
+        super().__init__()
 
     def cerrar(self):
         if self.cursor:

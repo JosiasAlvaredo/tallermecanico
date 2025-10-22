@@ -1,23 +1,12 @@
 import flet as ft
 import mysql.connector
+from conexion import ConexionGlobal
+
 
 #Conexion DB y CRUD
-class FichaTecnicaDB:
+class FichaTecnicaDB(ConexionGlobal):
     def __init__(self):
-        try:
-            self.connection = mysql.connector.connect(
-                host="localhost",
-                port=3306,
-                user="root",
-                password="root",
-                database="taller_mecanico",
-                ssl_disabled=True
-            )
-            self.cursor = self.connection.cursor(buffered=True)
-        except Exception as ex:
-            print("Error de conexión:", ex)
-            self.connection = None
-            self.cursor = None
+        super().__init__()
 
     def obtener_todas(self):
         self.cursor.execute("""

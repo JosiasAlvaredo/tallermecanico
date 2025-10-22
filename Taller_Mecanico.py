@@ -8,9 +8,9 @@ from presupuesto import FuncPresupuesto, PresupuestoDB
 from usuario import FuncUsuario, UsuarioDB
 
 class TallerMecanicoApp:
-    def __init__(self, page: ft.Page, estado_usuario):
+    def __init__(self, page: ft.Page):
         self.page = page
-        self.estado_usuario = estado_usuario
+        self.estado_usuario = {"nombre": None}
         self.modulos = {
             "Cliente": lambda: FuncCliente(self.page, ClienteDB(), volver_callback=self.menu_principal).mostrar_clientes(),
             "Proveedor": lambda: FuncProveedor(self.page, self.menu_principal),
@@ -18,9 +18,14 @@ class TallerMecanicoApp:
             "Empleado": lambda: FuncEmpleado(self.page, self.menu_principal),
             "Ficha Técnica": lambda: FuncFichaTecnica(self.page, self.menu_principal),
             "Presupuesto": lambda: FuncPresupuesto(self.page, self.menu_principal),
-            "Usuario": lambda: FuncUsuario(self.page, self.menu_principal, self.estado_usuario),  # ✅ agregado
         }
+        self.mostrar_login()
 
+    def mostrar_login(self):
+        self.page.clean()
+        FuncUsuario(self.page, self.login_exitoso, self.estado_usuario)
+
+    def login_exitoso(self):
         self.menu_principal()
 
     def seleccionar_modulo(self, e):
@@ -37,13 +42,14 @@ class TallerMecanicoApp:
         self.page.bgcolor = ft.Colors.BLUE_50
         self.page.title = "Administración de Taller Mecánico"
 
+        sesion_texto = ft.Text(f"Sesión iniciada: {self.estado_usuario['nombre']}", size=14, weight="bold")
+
         menu_administracion = ft.Dropdown(
             label="Administración",
             width=220,
             options=[
                 ft.dropdown.Option("Ficha Técnica"),
                 ft.dropdown.Option("Presupuesto"),
-                ft.dropdown.Option("Usuario"), 
             ],
             on_change=self.seleccionar_modulo,
         )
@@ -66,19 +72,24 @@ class TallerMecanicoApp:
         boton_empleado = self.crear_boton("recursos-humanos.png", "Empleados", lambda e: self.modulos["Empleado"]())
         boton_ficha_tecnica = self.crear_boton("auto.png", "Ficha Técnica", lambda e: self.modulos["Ficha Técnica"]())
         boton_presupuesto = self.crear_boton("Presupuesto.png", "Presupuesto", lambda e: self.modulos["Presupuesto"]())
-        boton_usuario = self.crear_boton("usuarios.png", "Usuario", lambda e: self.modulos["Usuario"]())
 
-        sesion_texto = (
-            ft.Text(f"Sesión iniciada: {self.estado_usuario['nombre']}", size=14, weight="bold")
-            if self.estado_usuario["nombre"]
-            else ft.Text("No hay sesión iniciada", size=14, italic=True)
+        boton_cerrar_sesion = ft.ElevatedButton(
+            text="Cerrar sesión",
+            icon=ft.Icons.LOGOUT,
+            on_click=lambda e: self.cerrar_sesion()
         )
 
         self.page.add(
             ft.Column(
                 controls=[
                     ft.Row(
-                        controls=[menu_herramientas, menu_administracion, ft.Container(expand=True), sesion_texto],
+                        controls=[
+                            menu_herramientas,
+                            menu_administracion,
+                            ft.Container(expand=True),
+                            sesion_texto,
+                            boton_cerrar_sesion,
+                        ],
                         alignment="spaceBetween",
                     ),
                     ft.Row(
@@ -87,9 +98,8 @@ class TallerMecanicoApp:
                             boton_proveedor,
                             boton_repuesto,
                             boton_empleado,
-                            boton_presupuesto,
                             boton_ficha_tecnica,
-                            boton_usuario,  
+                            boton_presupuesto,
                         ],
                         spacing=10,
                     ),
@@ -97,6 +107,10 @@ class TallerMecanicoApp:
                 spacing=20,
             )
         )
+
+    def cerrar_sesion(self):
+        self.estado_usuario["nombre"] = None
+        self.mostrar_login()
 
 def main(page: ft.Page):
     page.window.maximized = True
@@ -110,8 +124,6 @@ def main(page: ft.Page):
             title_large=ft.TextStyle(color=ft.Colors.BLACK),
         )
     )
-
-    estado_usuario = {"nombre": None}
-    TallerMecanicoApp(page, estado_usuario)
+    TallerMecanicoApp(page)
 
 ft.app(target=main, assets_dir="iconos")

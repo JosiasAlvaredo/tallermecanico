@@ -1,23 +1,12 @@
 import flet as ft
 import mysql.connector
+from conexion import ConexionGlobal
+
 
 #Conexion DB y CRUD
-class EmpleadoDB:
+class EmpleadoDB(ConexionGlobal):
     def __init__(self):
-        try:
-            self.connection = mysql.connector.connect(
-                host="localhost",
-                port=3306,
-                user="root",
-                password="root",
-                database="taller_mecanico",
-                ssl_disabled=True
-            )
-            self.cursor = self.connection.cursor(buffered=True)
-        except mysql.connector.Error as err:
-            print(f"Error al conectar DB: {err}")
-            self.connection = None
-            self.cursor = None
+        super().__init__()
 
     def obtener_todos(self):
         self.cursor.execute("""
